@@ -48,8 +48,8 @@ class FeatureExtractor2(object):
 
         # if no socket/pupil found, skip this img/frame
         if len(eye_sockets) == 0 or len(pupils) == 0:
-            print("Skip frame: pupil or eye_socket doesn't exist: " + str(image_count))
-            image_count += 1
+            print("Skip frame: pupil or eye_socket doesn't exist: " + str(self.image_count))
+            self.image_count += 1
             return None, None, None
 
         optimal_eye_socket_area = cv2.contourArea(eye_sockets[0])
@@ -100,15 +100,15 @@ class FeatureExtractor2(object):
 
         if ret < 0:
             print("Skip frame: two eyes in the frame, identified wrong pupil ")
-            image_count += 1
+            self.image_count += 1
             return None, None, None
 
-        print("Features extracted successfully: " + str(image_count) + msg)
-        image_count += 1
+        print("Features extracted successfully: " + str(self.image_count) + msg)
+        self.image_count += 1
         return leftmost, rightmost, (x_centroid, y_centroid)
 
     def extract(self, label_image, extract_pupil=True, extract_corner=True):
-        left_corner, right_corner, center = self.image_handler
+        left_corner, right_corner, center = self.image_handler(label_image)
 
         if extract_pupil and extract_corner:
             return ((int(center[0]), int(center[1])),
@@ -120,3 +120,14 @@ class FeatureExtractor2(object):
 
         if extractCorner:
             return ((int(left_corner[0]), int(left_corner[1])), (int(right_corner[0]), int(right_corner[1])))
+
+
+if __name__ == '__main__':
+    fx2 = FeatureExtractor2()
+    img = cv2.imread("./resources/test/test_0001.png")
+    ret = fx2.extract(img)
+
+    for item in ret:
+        cv2.circle(img, item, 1, (0, 0, 0), 5)
+
+    cv2.imwrite("./feature_extraction_test.png", img)
