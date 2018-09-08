@@ -5,6 +5,7 @@ import os
 
 SOURCE_FILE_PATH = "./resources/test/"
 FILE_FORMAT = "png"
+image_index = 0
 
 
 def make_test_dir():
@@ -51,17 +52,17 @@ def get_color_component(rgb_img, color):
     if color == "B":
         component_binary = cv2.bitwise_not(component_binary)
 
-    # cv2.imwrite("./" + color + "_component/" + str(count) + ".png", color_component)
-    cv2.imwrite("./" + color + "_component/" + str(count) + ".png", component_binary)
+    # cv2.imwrite("./" + color + "_component/" + str(image_count) + ".png", color_component)
+    cv2.imwrite("./" + color + "_component/" + str(image_count) + ".png", component_binary)
 
     return color_component, component_binary
 
 
-count = 0
+image_count = 0
 
 
 def image_handler(img):
-    global count
+    global image_count
 
     red, red_binary = get_color_component(img, "R")
     # green, green_binary = get_color_component(img, "G")
@@ -70,7 +71,7 @@ def image_handler(img):
     # dialation
     kernel = np.ones((2, 2), np.uint8)
     pupil_shape = cv2.dilate(red_binary, kernel, iterations=1)
-    # cv2.imwrite("./pupil/" + str(count) + ".png", pupil_shape)
+    # cv2.imwrite("./pupil/" + str(image_count) + ".png", pupil_shape)
 
     # find all eye sockets and pupil
     _, eye_sockets, hierarchy = cv2.findContours(blue_binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -78,8 +79,8 @@ def image_handler(img):
 
     # if no socket/pupil found, skip this img/frame
     if len(eye_sockets) == 0 or len(pupils) == 0:
-        print("Skip frame: pupil or eye_socket doesn't exist: " + str(count))
-        count += 1
+        print("Skip frame: pupil or eye_socket doesn't exist: " + str(image_count))
+        image_count += 1
         return
 
     optimal_eye_socket_area = cv2.contourArea(eye_sockets[0])
@@ -122,7 +123,7 @@ def image_handler(img):
     cv2.drawContours(optimal_pupil_mask, pupils, optimal_pupil_index, 255, -1)
     optimal_pupil_mask = cv2.cvtColor(optimal_pupil_mask, cv2.COLOR_BGR2GRAY)
     _, optimal_pupil_binary = cv2.threshold(optimal_pupil_mask, 2, 255, cv2.THRESH_BINARY)
-    cv2.imwrite("./optimal_pupil_mask/" + str(count) + ".png", optimal_pupil_binary)
+    cv2.imwrite("./optimal_pupil_mask/" + str(image_count) + ".png", optimal_pupil_binary)
 
     # calculate center/moment of the binary image of the pupil
     moment = cv2.moments(optimal_pupil_binary)
@@ -135,12 +136,12 @@ def image_handler(img):
 
     if ret < 0:
         print("Skip frame: two eyes in the frame, identified wrong pupil ")
-        count += 1
+        image_count += 1
         return
 
-    cv2.imwrite("./feature_extraction/" + str(count) + ".png", img)
-    print("Features extracted successfully: " + str(count) + msg)
-    count += 1
+    cv2.imwrite("./feature_extraction/" + str(image_count) + ".png", img)
+    print("Features extracted successfully: " + str(image_count) + msg)
+    image_count += 1
 
 
 def video_handler():
