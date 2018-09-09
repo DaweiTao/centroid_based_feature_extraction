@@ -9,7 +9,7 @@ image_index = 0
 
 
 def make_test_dir():
-    test_folders = ["R_component", "B_component", "feature_extraction", "optimal_pupil_mask"]
+    test_folders = ["R_component", "B_component", "feature_extraction", "optimal_pupil_mask", "abnormal"]
     for dir in test_folders:
         test_dir = "./" + dir
         if not os.path.exists(test_dir):
@@ -52,8 +52,8 @@ def get_color_component(rgb_img, color):
     if color == "B":
         component_binary = cv2.bitwise_not(component_binary)
 
-    # cv2.imwrite("./" + color + "_component/" + str(image_count) + ".png", color_component)
-    cv2.imwrite("./" + color + "_component/" + str(image_count) + ".png", component_binary)
+    # cv2.imwrite("./" + color + "_component/" +  "{0:04d}".format(image_count) + ".png", color_component)
+    cv2.imwrite("./" + color + "_component/" + "{0:04d}".format(image_count) + ".png", component_binary)
 
     return color_component, component_binary
 
@@ -71,43 +71,48 @@ def image_handler(img):
     # dialation
     kernel = np.ones((2, 2), np.uint8)
     pupil_shape = cv2.dilate(red_binary, kernel, iterations=1)
-    # cv2.imwrite("./pupil/" + str(image_count) + ".png", pupil_shape)
+    # cv2.imwrite("./pupil/" +  "{0:04d}".format(image_count) + ".png", pupil_shape)
 
-    # find all eye sockets and pupil
-    _, eye_sockets, hierarchy = cv2.findContours(blue_binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    _, pupils, hierarchy = cv2.findContours(red_binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # find all eye contours and pupil
+    _, eye_contours, hierarchy = cv2.findContours(blue_binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    _, pupils, hierarchy = cv2.findContours(pupil_shape, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    # if no socket/pupil found, skip this img/frame
-    if len(eye_sockets) == 0 or len(pupils) == 0:
-        print("Skip frame: pupil or eye_socket doesn't exist: " + str(image_count))
+    # if no contour/pupil found, skip this img/frame
+    if len(eye_contours) == 0 or len(pupils) == 0:
+        print("WARNING: pupil or eye_contour doesn't exist: " + "{0:04d}".format(image_count))
+        cv2.imwrite("./abnormal/" + "{0:04d}".format(image_count) + "_WN_NO" + ".png", img)
         image_count += 1
         return
 
-    optimal_eye_socket_area = cv2.contourArea(eye_sockets[0])
-    optimal_eye_socket_index = 0
+    optimal_eye_contour_area = cv2.contourArea(eye_contours[0])
+    optimal_eye_contour_index = 0
 
-    for i in range(len(eye_sockets)):
-        area = cv2.contourArea(eye_sockets[i])
-        if area > optimal_eye_socket_area:
-            optimal_eye_socket_index = i
-            optimal_eye_socket_area = area
+    for i in range(len(eye_contours)):
+        area = cv2.contourArea(eye_contours[i])
+        if area > optimal_eye_contour_area:
+            optimal_eye_contour_index = i
+            optimal_eye_contour_area = area
+
+    cv2.drawContours(img, eye_contours, optimal_eye_contour_index, (255, 0, 255), 2)
 
     # extract left & right corner
-    optimal_eye_socket = eye_sockets[optimal_eye_socket_index]
-    leftmost = tuple(optimal_eye_socket[optimal_eye_socket[:, :, 0].argmin()][0])
-    rightmost = tuple(optimal_eye_socket[optimal_eye_socket[:, :, 0].argmax()][0])
-    cv2.drawContours(img, eye_sockets, optimal_eye_socket_index, (128, 0, 128), 2)
+    optimal_eye_contour = eye_contours[optimal_eye_contour_index]
+    leftmost = tuple(optimal_eye_contour[optimal_eye_contour[:, :, 0].argmin()][0])
+    rightmost = tuple(optimal_eye_contour[optimal_eye_contour[:, :, 0].argmax()][0])
 
     msg = ""
-    if leftmost[0] < 1 or leftmost[0] > 254 or leftmost[1] < 1 or leftmost[1] > 254:
-        msg += " ,Missing left eye corner"
-    else:
-        cv2.circle(img, leftmost, 1, (0, 0, 0), 4)
 
-    if rightmost[0] < 1 or rightmost[0] > 254 or rightmost[1] < 1 or rightmost[1] > 254:
-        msg += " ,Missing right eye corner"
+    if leftmost[0] <= 0 or leftmost[0] >= 255 or leftmost[1] <= 0 or leftmost[1] >= 256:
+        msg += " ,left eye corner touches boundary"
+        cv2.imwrite("./abnormal/" + "{0:04d}".format(image_count) + "_WN_LC" + ".png", img)
     else:
-        cv2.circle(img, rightmost, 1, (0, 0, 0), 4)
+        cv2.circle(img, leftmost, 3, (0, 0, 0), -1)
+
+    if rightmost[0] <= 0 or rightmost[0] >= 255 or rightmost[1] <= 0 or rightmost[1] >= 256:
+        msg += " ,right eye corner touches boundary"
+        cv2.imwrite("./abnormal/" + "{0:04d}".format(image_count) + "_WN_RC" + ".png", img)
+    else:
+        cv2.circle(img, rightmost, 3, (0, 0, 0), -1)
 
     # find optimal pupil
     optimal_pupil = cv2.contourArea(pupils[0])
@@ -119,28 +124,34 @@ def image_handler(img):
             optimal_pupil_index = i
             optimal_pupil = area
 
+    cv2.drawContours(img, pupils, optimal_pupil_index, (255, 133, 133), 2)
+
+    # create mask for optimal pupil contour
     optimal_pupil_mask = np.zeros_like(img)
-    cv2.drawContours(optimal_pupil_mask, pupils, optimal_pupil_index, 255, -1)
+    cv2.drawContours(optimal_pupil_mask, pupils, optimal_pupil_index, (255, 255, 255), -1)
     optimal_pupil_mask = cv2.cvtColor(optimal_pupil_mask, cv2.COLOR_BGR2GRAY)
     _, optimal_pupil_binary = cv2.threshold(optimal_pupil_mask, 2, 255, cv2.THRESH_BINARY)
-    cv2.imwrite("./optimal_pupil_mask/" + str(image_count) + ".png", optimal_pupil_binary)
+    cv2.imwrite("./optimal_pupil_mask/" + "{0:04d}".format(image_count) + ".png", optimal_pupil_binary)
 
     # calculate center/moment of the binary image of the pupil
     moment = cv2.moments(optimal_pupil_binary)
     x_centroid = int(moment["m10"] / moment["m00"])
     y_centroid = int(moment["m01"] / moment["m00"])
-    cv2.circle(img, (x_centroid, y_centroid), 1, (0, 0, 0), 2)
 
-    # test if the pupil center is in the eye socket
-    ret = cv2.pointPolygonTest(optimal_eye_socket, (x_centroid, y_centroid), False)
+    # test if the pupil center is in the eye contour
+    ret = cv2.pointPolygonTest(optimal_eye_contour, (x_centroid, y_centroid), False)
 
     if ret < 0:
-        print("Skip frame: two eyes in the frame, identified wrong pupil ")
+        print("WARNING: optimal pupil center is not in the optimal eye contour: " + "{0:04d}".format(image_count) + msg)
+        cv2.imwrite("./abnormal/" + "{0:04d}".format(image_count) + "_WN_OPT" + ".png", img)
         image_count += 1
         return
 
-    cv2.imwrite("./feature_extraction/" + str(image_count) + ".png", img)
-    print("Features extracted successfully: " + str(image_count) + msg)
+    cv2.circle(img, (x_centroid, y_centroid), 2, (255, 255, 255), -1)
+    msg += (", pupil center: " + str(x_centroid) + ", " + str(y_centroid))
+
+    cv2.imwrite("./feature_extraction/" + "{0:04d}".format(image_count) + ".png", img)
+    print("Features extracted successfully: " + "{0:04d}".format(image_count) + msg)
     image_count += 1
 
 
@@ -149,7 +160,7 @@ def video_handler():
 
 
 def feature_extraction_engine(path, source_type="image"):
-    if source_type ==  "image":
+    if source_type == "image":
         image_handler(cv2.imread(path))
     elif source_type == "video":
         video_handler(cv2.VideoCapture(path))
