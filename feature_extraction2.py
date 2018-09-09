@@ -119,12 +119,10 @@ class FeatureExtractor2(object):
         if extract_corner:
             return (left_corner, right_corner)
 
-
 if __name__ == '__main__':
     fx2 = FeatureExtractor2()
     img = cv2.imread("./resources/test/test_0002.png")
     ret = fx2.extract(img)
-
     for item in ret:
         cv2.circle(img, item, 1, (0, 0, 0), 5)
 
