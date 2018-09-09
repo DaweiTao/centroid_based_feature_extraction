@@ -111,20 +111,18 @@ class FeatureExtractor2(object):
         left_corner, right_corner, center = self.image_handler(label_image)
 
         if extract_pupil and extract_corner:
-            return ((int(center[0]), int(center[1])),
-                    (int(left_corner[0]), int(left_corner[1])),
-                    (int(right_corner[0]), int(right_corner[1])))
+            return (center, left_corner, right_corner)
 
-        if extractPupil:
-            return (int(center[0]), int(center[1]))
+        if extract_pupil:
+            return (center)
 
-        if extractCorner:
-            return ((int(left_corner[0]), int(left_corner[1])), (int(right_corner[0]), int(right_corner[1])))
+        if extract_corner:
+            return (left_corner, right_corner)
 
 
 if __name__ == '__main__':
     fx2 = FeatureExtractor2()
-    img = cv2.imread("./resources/test/test_0001.png")
+    img = cv2.imread("./resources/test/test_0002.png")
     ret = fx2.extract(img)
 
     for item in ret:
