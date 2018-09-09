@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
-
+import glob
+import os
 
 class FeatureExtractor2(object):
 
@@ -48,7 +49,7 @@ class FeatureExtractor2(object):
 
         # if no socket/pupil found, skip this img/frame
         if len(eye_sockets) == 0 or len(pupils) == 0:
-            print("Skip frame: pupil or eye_socket doesn't exist: " + str(self.image_count))
+            print("WARNING: pupil or eye_contour doesn't exist: " + str(self.image_count))
             self.image_count += 1
             return None, None, None
 
@@ -67,12 +68,12 @@ class FeatureExtractor2(object):
         rightmost = tuple(optimal_eye_socket[optimal_eye_socket[:, :, 0].argmax()][0])
 
         msg = ""
-        if leftmost[0] < 1 or leftmost[0] > 254 or leftmost[1] < 1 or leftmost[1] > 254:
-            msg += " ,Missing left eye corner"
+        if leftmost[0] <= 0 or leftmost[0] >= 255 or leftmost[1] <= 0 or leftmost[1] >= 255:
+            msg += " ,left eye corner touches boundary"
             leftmost = None
 
-        if rightmost[0] < 1 or rightmost[0] > 254 or rightmost[1] < 1 or rightmost[1] > 254:
-            msg += " ,Missing right eye corner"
+        if rightmost[0] <= 0 or rightmost[0] >= 255 or rightmost[1] <= 0 or rightmost[1] >= 255:
+            msg += " ,right eye corner touches boundary"
             rightmost = None
 
         # find optimal pupil
@@ -99,7 +100,7 @@ class FeatureExtractor2(object):
         ret = cv2.pointPolygonTest(optimal_eye_socket, (x_centroid, y_centroid), False)
 
         if ret < 0:
-            print("Skip frame: two eyes in the frame, identified wrong pupil ")
+            print("WARNING: optimal pupil center is not in the optimal eye contour: " + str(self.image_count))
             self.image_count += 1
             return None, None, None
 
@@ -119,11 +120,45 @@ class FeatureExtractor2(object):
         if extract_corner:
             return (left_corner, right_corner)
 
-if __name__ == '__main__':
-    fx2 = FeatureExtractor2()
-    img = cv2.imread("./resources/test/test_0002.png")
-    ret = fx2.extract(img)
-    for item in ret:
-        cv2.circle(img, item, 1, (0, 0, 0), 5)
 
-    cv2.imwrite("./feature_extraction_test.png", img)
+if __name__ == '__main__':
+    combined_path = "./combined_output"
+    if not os.path.exists(combined_path):
+        os.makedirs(combined_path)
+
+    fx2 = FeatureExtractor2()
+    path_to_ml_label = './resources/test/'
+    path_to_real_img = './resources/real/'
+    test_list = glob.glob(path_to_ml_label + "*.png")
+    real_list = glob.glob(path_to_real_img + "*.png")
+
+    # print(len(label_list), len(image_list))
+    min_len = len(test_list)
+    if len(real_list) < min_len:
+        min_len = len(real_list)
+
+    for i in range(min_len):
+
+        label_img_file = test_list[i]
+        real_img_file = real_list[i]
+        # print(label_img_file, real_img_file)
+
+        label_img = cv2.imread(label_img_file)
+        real_img = cv2.imread(real_img_file)
+        coordinates = fx2.extract(label_img)
+
+        center = coordinates[0]
+        left = coordinates[1]
+        right = coordinates[2]
+
+        if center is not None:
+            cv2.circle(real_img, center, 3, (0, 255, 0), -1)
+
+        if left is not None:
+            cv2.circle(real_img, left, 3, (255, 0, 255), -1)
+
+        if right is not None:
+            cv2.circle(real_img, right, 3, (255, 0, 255), -1)
+
+        cv2.imwrite("./combined_output/" + "{0:04d}".format(i) + ".png", real_img)
+        # print("(" + str(i) + " / " + str(min_len) + ")")

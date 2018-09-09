@@ -64,6 +64,7 @@ image_count = 0
 def image_handler(img):
     global image_count
 
+
     red, red_binary = get_color_component(img, "R")
     # green, green_binary = get_color_component(img, "G")
     blue, blue_binary = get_color_component(img, "B")
@@ -102,13 +103,13 @@ def image_handler(img):
 
     msg = ""
 
-    if leftmost[0] <= 0 or leftmost[0] >= 255 or leftmost[1] <= 0 or leftmost[1] >= 256:
+    if leftmost[0] <= 0 or leftmost[0] >= 255 or leftmost[1] <= 0 or leftmost[1] >= 255:
         msg += " ,left eye corner touches boundary"
         cv2.imwrite("./abnormal/" + "{0:04d}".format(image_count) + "_WN_LC" + ".png", img)
     else:
         cv2.circle(img, leftmost, 3, (0, 0, 0), -1)
 
-    if rightmost[0] <= 0 or rightmost[0] >= 255 or rightmost[1] <= 0 or rightmost[1] >= 256:
+    if rightmost[0] <= 0 or rightmost[0] >= 255 or rightmost[1] <= 0 or rightmost[1] >= 255:
         msg += " ,right eye corner touches boundary"
         cv2.imwrite("./abnormal/" + "{0:04d}".format(image_count) + "_WN_RC" + ".png", img)
     else:
