@@ -5,8 +5,9 @@ import os
 
 class FeatureExtractor2(object):
 
-    def __init__(self, image_count=0):
+    def __init__(self, mode=0):
         self.image_count = 0
+        self.mode = mode
 
     def get_color_component(self, rgb_img, color):
         hsv = cv2.cvtColor(rgb_img, cv2.COLOR_RGB2HSV)
@@ -97,12 +98,13 @@ class FeatureExtractor2(object):
         y_centroid = int(moment["m01"] / moment["m00"])
 
         # test if the pupil center is in the eye socket
-#        ret = cv2.pointPolygonTest(optimal_eye_socket, (x_centroid, y_centroid), False)
-#
-#        if ret < 0:
-#            print("WARNING: optimal pupil center is not in the optimal eye contour: " + str(self.image_count))
-#            self.image_count += 1
-#            return None, None, None
+        if self.mode == 1:
+            ret = cv2.pointPolygonTest(optimal_eye_socket, (x_centroid, y_centroid), False)
+
+            if ret < 0:
+                print("WARNING: optimal pupil center is not in the optimal eye contour: " + str(self.image_count))
+                self.image_count += 1
+                return None, None, None
 
         print("Features extracted successfully: " + str(self.image_count) + msg)
         self.image_count += 1
@@ -131,6 +133,8 @@ if __name__ == '__main__':
     path_to_real_img = './resources/real/'
     test_list = glob.glob(path_to_ml_label + "*.png")
     real_list = glob.glob(path_to_real_img + "*.png")
+    test_list = sorted(test_list, key=lambda x:x[-9:])
+    real_list = sorted(real_list, key=lambda x:x[-9:])
 
     # print(len(label_list), len(image_list))
     min_len = len(test_list)
@@ -141,7 +145,7 @@ if __name__ == '__main__':
 
         label_img_file = test_list[i]
         real_img_file = real_list[i]
-        # print(label_img_file, real_img_file)
+#        print(label_img_file, real_img_file)
 
         label_img = cv2.imread(label_img_file)
         real_img = cv2.imread(real_img_file)
