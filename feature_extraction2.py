@@ -97,12 +97,12 @@ class FeatureExtractor2(object):
         y_centroid = int(moment["m01"] / moment["m00"])
 
         # test if the pupil center is in the eye socket
-        ret = cv2.pointPolygonTest(optimal_eye_socket, (x_centroid, y_centroid), False)
-
-        if ret < 0:
-            print("WARNING: optimal pupil center is not in the optimal eye contour: " + str(self.image_count))
-            self.image_count += 1
-            return None, None, None
+#        ret = cv2.pointPolygonTest(optimal_eye_socket, (x_centroid, y_centroid), False)
+#
+#        if ret < 0:
+#            print("WARNING: optimal pupil center is not in the optimal eye contour: " + str(self.image_count))
+#            self.image_count += 1
+#            return None, None, None
 
         print("Features extracted successfully: " + str(self.image_count) + msg)
         self.image_count += 1
