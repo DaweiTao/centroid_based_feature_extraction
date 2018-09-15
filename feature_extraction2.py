@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import glob
 import os
+import types
 
 class FeatureExtractor2(object):
 
@@ -111,6 +112,14 @@ class FeatureExtractor2(object):
         return leftmost, rightmost, (x_centroid, y_centroid)
 
     def extract(self, label_image, extract_pupil=True, extract_corner=True):
+        if label_img.dtype != 'uint8':
+            print("INPUT ERROR: dtype of input image is not unit8")
+            return -1
+
+        if label_img.shape != (256, 256, 3):
+            print("INPUT ERROR: image shape should be (256, 256, 3)")
+            return -1
+
         left_corner, right_corner, center = self.image_handler(label_image)
 
         if extract_pupil and extract_corner:
@@ -150,6 +159,9 @@ if __name__ == '__main__':
         label_img = cv2.imread(label_img_file)
         real_img = cv2.imread(real_img_file)
         coordinates = fx2.extract(label_img)
+
+        if coordinates == -1:
+            continue
 
         center = coordinates[0]
         left = coordinates[1]
