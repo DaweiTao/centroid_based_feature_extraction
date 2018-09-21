@@ -40,6 +40,7 @@ class FeatureExtractor2(object):
         red, red_binary = self.get_color_component(img, "R")
         # green, green_binary = self.get_color_component(img, "G")
         blue, blue_binary = self.get_color_component(img, "B")
+        frame_background = np.zeros_like(img)
 
         # dialation
         kernel = np.ones((2, 2), np.uint8)
@@ -53,7 +54,7 @@ class FeatureExtractor2(object):
         if len(eye_sockets) == 0 or len(pupils) == 0:
             print("WARNING: pupil or eye_contour doesn't exist: " + str(self.image_count))
             self.image_count += 1
-            return None, None, None
+            return None, None, None, img
 
         optimal_eye_socket_area = cv2.contourArea(eye_sockets[0])
         optimal_eye_socket_index = 0
@@ -64,19 +65,30 @@ class FeatureExtractor2(object):
                 optimal_eye_socket_index = i
                 optimal_eye_socket_area = area
 
-        # extract left & right corner
+        # optimal eye_socket
         optimal_eye_socket = eye_sockets[optimal_eye_socket_index]
+
+        # draw the optimal eye socket on the original img
+        cv2.drawContours(frame_background, eye_sockets, optimal_eye_socket_index, (0, 255, 0), -1)
+
+        # extract left & right corner
         leftmost = tuple(optimal_eye_socket[optimal_eye_socket[:, :, 0].argmin()][0])
         rightmost = tuple(optimal_eye_socket[optimal_eye_socket[:, :, 0].argmax()][0])
 
         msg = ""
+
+        #  draw corners if exists
         if leftmost[0] <= 0 or leftmost[0] >= 255 or leftmost[1] <= 0 or leftmost[1] >= 255:
             msg += " ,left eye corner touches boundary"
             leftmost = None
+        else:
+            cv2.circle(frame_background, leftmost, 3, (255, 255, 255), -1)
 
         if rightmost[0] <= 0 or rightmost[0] >= 255 or rightmost[1] <= 0 or rightmost[1] >= 255:
             msg += " ,right eye corner touches boundary"
             rightmost = None
+        else:
+            cv2.circle(frame_background, rightmost, 3, (255, 255, 255), -1)
 
         # find optimal pupil
         optimal_pupil = cv2.contourArea(pupils[0])
@@ -88,6 +100,10 @@ class FeatureExtractor2(object):
                 optimal_pupil_index = i
                 optimal_pupil = area
 
+        # draw the optimal pupil contour
+        # cv2.drawContours(frame_background, pupils, optimal_pupil_index, (255, 133, 133), -1)
+        cv2.drawContours(frame_background, pupils, optimal_pupil_index, (0, 0, 255), -1)
+
         optimal_pupil_mask = np.zeros_like(img)
         cv2.drawContours(optimal_pupil_mask, pupils, optimal_pupil_index, 255, -1)
         optimal_pupil_mask = cv2.cvtColor(optimal_pupil_mask, cv2.COLOR_BGR2GRAY)
@@ -98,6 +114,7 @@ class FeatureExtractor2(object):
         x_centroid = int(moment["m10"] / moment["m00"])
         y_centroid = int(moment["m01"] / moment["m00"])
 
+
         # test if the pupil center is in the eye socket
         if self.mode == 1:
             ret = cv2.pointPolygonTest(optimal_eye_socket, (x_centroid, y_centroid), False)
@@ -105,13 +122,19 @@ class FeatureExtractor2(object):
             if ret < 0:
                 print("WARNING: optimal pupil center is not in the optimal eye contour: " + str(self.image_count))
                 self.image_count += 1
-                return None, None, None
+                return None, None, None, img
+
+            # draw the optimal pupil center
+            cv2.circle(frame_background, (x_centroid, y_centroid), 2, (255, 255, 255), -1)
+        else:
+            # draw the optimal pupil center
+            cv2.circle(frame_background, (x_centroid, y_centroid), 2, (255, 255, 255), -1)
 
         print("Features extracted successfully: " + str(self.image_count) + msg)
         self.image_count += 1
-        return leftmost, rightmost, (x_centroid, y_centroid)
+        return leftmost, rightmost, (x_centroid, y_centroid), frame_background
 
-    def extract(self, label_image, extract_pupil=True, extract_corner=True):
+    def extract(self, label_image, extract_pupil=True, extract_corner=True, extract_frame=True):
         if label_img.dtype != 'uint8':
             print("INPUT ERROR: dtype of input image is not unit8")
             return -1
@@ -120,22 +143,29 @@ class FeatureExtractor2(object):
             print("INPUT ERROR: image shape should be (256, 256, 3)")
             return -1
 
-        left_corner, right_corner, center = self.image_handler(label_image)
+        left_corner, right_corner, center, frame = self.image_handler(label_image)
+
+        if extract_pupil and extract_corner and extract_frame:
+            return [center, left_corner, right_corner, frame]
 
         if extract_pupil and extract_corner:
-            return (center, left_corner, right_corner)
+            return [center, left_corner, right_corner]
 
         if extract_pupil:
-            return (center)
+            return [center]
 
         if extract_corner:
-            return (left_corner, right_corner)
+            return [left_corner, right_corner]
 
 
 if __name__ == '__main__':
     combined_path = "./combined_output"
     if not os.path.exists(combined_path):
         os.makedirs(combined_path)
+
+    feature_frame = "./frame"
+    if not os.path.exists(feature_frame):
+        os.makedirs(feature_frame)
 
     fx2 = FeatureExtractor2()
     path_to_ml_label = './resources/test/'
@@ -158,14 +188,15 @@ if __name__ == '__main__':
 
         label_img = cv2.imread(label_img_file)
         real_img = cv2.imread(real_img_file)
-        coordinates = fx2.extract(label_img)
+        ret = fx2.extract(label_img)
 
-        if coordinates == -1:
+        if ret == -1:
             continue
 
-        center = coordinates[0]
-        left = coordinates[1]
-        right = coordinates[2]
+        center = ret[0]
+        left = ret[1]
+        right = ret[2]
+        frame = ret[3]
 
         if center is not None:
             cv2.circle(real_img, center, 3, (0, 255, 0), -1)
@@ -177,4 +208,6 @@ if __name__ == '__main__':
             cv2.circle(real_img, right, 3, (255, 0, 255), -1)
 
         cv2.imwrite("./combined_output/" + "{0:04d}".format(i) + ".png", real_img)
+
+        cv2.imwrite("./frame/" + "{0:04d}".format(i) + ".png", frame)
         # print("(" + str(i) + " / " + str(min_len) + ")")
