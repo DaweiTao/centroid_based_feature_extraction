@@ -7,7 +7,7 @@ import types
 
 class FeatureExtractor2(object):
 
-    def __init__(self, accurate_mode=True, projection=False, silent=True):
+    def __init__(self, accurate_mode=True, projection=True, silent=True):
         self.image_count = 0
         self.accurate_mode = accurate_mode
         self.projection = projection
@@ -121,13 +121,15 @@ class FeatureExtractor2(object):
             feature_projection = np.zeros_like(img)
             # draw the optimal eye socket on the original img
             cv2.drawContours(feature_projection, eye_sockets, optimal_eye_socket_index, (0, 255, 0), -1)
+            cv2.drawContours(feature_projection, eye_sockets, optimal_eye_socket_index, (255, 133, 133), 2)
             #  draw corners if exists
-            if leftmost is not None:
-                cv2.circle(feature_projection, leftmost, 3, (255, 255, 255), -1)
-            if rightmost is not None:
-                cv2.circle(feature_projection, rightmost, 3, (255, 255, 255), -1)
+#            if leftmost is not None:
+#                cv2.circle(feature_projection, leftmost, 3, (255, 255, 255), -1)
+#            if rightmost is not None:
+#                cv2.circle(feature_projection, rightmost, 3, (255, 255, 255), -1)
             # draw the optimal pupil contour
             cv2.drawContours(feature_projection, pupils, optimal_pupil_index, (0, 0, 255), -1)
+            cv2.drawContours(feature_projection, pupils, optimal_pupil_index, (0, 255, 255), 2)
             # draw the optimal pupil center
             cv2.circle(feature_projection, (x_centroid, y_centroid), 2, (255, 255, 255), -1)
             if not self.silent:
@@ -142,13 +144,13 @@ class FeatureExtractor2(object):
 
     def extract(self, label_image, extract_pupil=True, extract_corner=True, extract_frame=True):
         # check format
-        if label_image.dtype != 'uint8':
-            print("INPUT ERROR: dtype of input image is not unit8")
-            return -1, -1, -1, -1
-
-        if label_image.shape != (256, 256, 3):
-            print("INPUT ERROR: image shape should be (256, 256, 3)")
-            return -1, -1, -1, -1
+#        if label_image.dtype != 'uint8':
+#            print("INPUT ERROR: dtype of input image is not unit8")
+#            return [None, None, None, -1]
+#
+#        if label_image.shape != (256, 256, 3):
+#            print("INPUT ERROR: image shape should be (256, 256, 3)")
+#            return [None, None, None, -1]
 
         left_corner, right_corner, center, frame = self.image_handler(label_image)
 
@@ -215,7 +217,7 @@ def test_feature_projection():
     if not os.path.exists(feature_frame):
         os.makedirs(feature_frame)
 
-    fx2 = FeatureExtractor2(projection=True, silent=False)
+    fx2 = FeatureExtractor2(silent=False)
     path_to_ml_label = './resources/test/'
 
     test_list = glob.glob(path_to_ml_label + "*.png")
