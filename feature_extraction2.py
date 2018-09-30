@@ -144,8 +144,8 @@ class FeatureExtractor2(object):
 
     def extract(self, label_image, extract_pupil=True, extract_corner=True, extract_frame=True):
         # comment this for local test
-        # r, g, b = cv2.split(label_image)
-        # label_image = cv2.merge(b, g, r)
+        r, g, b = cv2.split(label_image)
+        label_image = cv2.merge(b, g, r)
 
         # check format
         # if label_image.dtype != 'uint8':
